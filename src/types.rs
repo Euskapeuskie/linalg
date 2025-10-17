@@ -44,6 +44,10 @@ where
         }
         ans
     }
+
+    pub fn pinv(&self) -> Self {
+        todo!()
+    }
 }
 
 
@@ -69,57 +73,64 @@ where
         Self { data: data }
     }
 
-
-    /// Performs the LU factorization on the matrix and returns a tuple
+    /// Performs the LU factorization on the matrix A to satisfy the equation PA = LU and returns a tuple
     /// 
-    /// (L, U)
+    /// (P, L, U)
     ///  
+    /// - P: Permutation matrix
+    /// - L: Lower triangular matrix
+    /// - U: Upper traingular matrix
     /// This only works for floating point type matrices.
-    pub fn lu_decomposition(&self) -> Matrix<T, N, N>
-    where T: num_traits::Float + PartialOrd
+    pub fn lu_decomposition(&self) -> (Self, Self, Self)
+    where T: num_traits::Float,
     {
-        let mut U = self.clone();
+        let mut P: Matrix<T, N, N> = Self::identity();
         let mut L = Self::identity();
+        let mut U = self.clone();
+        
 
         // 1) Permutation - put the biggest element by absolute value in the upper most position as pivot (numeric stability)
         // 2) Elimination - row by row
         for i in 0..N {
             // find the row index where that column has the maximum value
-            let maybe_row_col_max = self.data.iter().enumerate().skip(i) // only look at data starting at row i
-                .map(|(row_i, row)| (row_i, row[i])) // get row index and element in data[row][i]
-                .fold(None, |acc, x| match acc {
-                    None => Some(x),
-                    Some(y) => match x.partial_cmp(&y) {
-                        Some(std::cmp::Ordering::Greater) => Some(x),
-                        Some(_) => Some(y),
-                        None => None,
-                    },
-                }).map(|x| x.0); // we're only interested in the row index
-            println!("{maybe_row_col_max:?}, {i}");
+            let maybe_row_max_index = U.data.iter().enumerate().skip(i) // only look at rows from i downwards
+                .map(|(row_i, row)| (row_i, row[i])) // look at the i_th element in each row
+                .max_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).expect("Unable to order rows"))
+                .map(|(index, _)| index);
             
             // swap rows if necessary
-            if let Some(row_col_max) = maybe_row_col_max {
+            if let Some(row_max_index) = maybe_row_max_index {
                 // if the largest element of column i isn't in row i, then swap the rows
-                if row_col_max != i {
-                    // permutation matrix
-                    U.data.swap(row_col_max, i);
-                }
+                U.data.swap(row_max_index, i);
+                // calculate new permutation matrix
+                let mut P_i: Matrix<T, N, N> = Self::identity();
+                P_i.data.swap(row_max_index, i);
+                P = &P_i * &P;
             }
 
             // eliminate rows
-            for j in i+1..N {
-                let (top, bottom) = U.data.split_at_mut(j);
-                let row_i = &top[i];
-                let row_j = &mut bottom[0];
+            let (top, bottom) = U.data.split_at_mut(i+1);
+            let pivot_row = &top[i];
 
-                let factor = row_j[0] / row_i[0];
+            for j in 0..bottom.len() {
+                let row_j = &mut bottom[j];
+                let factor = row_j[i] / pivot_row[i];
+                // update L matrix: stores information
+                // "how did I eliminate element [i][j]"
+                L.data[i+1+j][i] = factor;
+                // for every column in row j
                 for k in i..N {
-                    println!("k is {k}, j is {j}");
-                    row_j[k] = row_j[k] - factor*row_i[k];
+                    row_j[k] = row_j[k] - factor*pivot_row[k]
                 }
-            }    
+            }
+
         }
-        U
+        (P, L, U)
+    }
+
+
+    pub fn inv(&self) -> Self {
+        todo!()
     }
 }
 
@@ -127,7 +138,7 @@ where
 // Matrix + Matrix addition
 impl<T, const M: usize, const N: usize> Add for &Matrix<T, M, N>
 where 
-    T: Copy + Add<Output = T> + num_traits::Num
+    T: Copy + num_traits::Num
 {
     type Output = Matrix<T, M, N>;
 
@@ -146,11 +157,11 @@ where
 }
 
 
-// Matrix x Matrix multiplication
+// Matrix x Matrix multiplication rectangular
 impl<T, U, const M: usize, const N: usize, const P: usize> Mul<&Matrix<U, N, P>> for &Matrix<T, M, N>
 where 
-    T: Copy + From<U> + num_traits::Num + Sum,
-    U: Copy,
+    T: Copy + num_traits::Num + From<U>,
+    U: Copy + num_traits::Num,
 {
     type Output = Matrix<T, M, P>;
 
@@ -160,7 +171,7 @@ where
             for j in 0..P {
                 ans.data[i][j] = (0..N)
                     .map(|k| self.data[i][k] * T::from(rhs.data[k][j]))
-                    .sum();
+                    .fold(T::zero(), |acc, x| acc+x);
             }
         }
         ans
@@ -169,9 +180,9 @@ where
 
 
 // Matrix x Scalar multiplication
-impl<U, T, const M: usize, const N: usize> Mul<U> for &Matrix<T, M, N>
+impl<T, U, const M: usize, const N: usize> Mul<U> for &Matrix<T, M, N>
 where 
-    T: Copy + Mul<T, Output = T> + From<U>,
+    T: Copy + From<U> + num_traits::Num,
     U: Copy + num_traits::Num
 {
     type Output = Matrix<T, M, N>;
@@ -254,12 +265,12 @@ mod test {
     fn mul_matrices() {
         let a: Matrix<f64, 3, 3> = Matrix::ones();
         let b: Matrix<f64, 3, 3> = Matrix::ones();
-        let d: Matrix<u32, 3, 3> = Matrix::ones();
+        let d: Matrix<f64, 3, 3> = Matrix::ones();
         let c = &(&a * &b) * &d;
         let e = &a + &b;
 
         let a: Matrix<f64, 3, 7> = Matrix::ones();
-        let b: Matrix<f32, 7, 3> = Matrix::ones();
+        let b: Matrix<f64, 7, 3> = Matrix::ones();
         let c = &a * &b;
     }
 
@@ -283,10 +294,11 @@ mod test {
 
     #[test]
     fn lu_factors() {
-        let arr = [[1., 2.], [4., 7.]];
+        let arr = [[1., 2., 7.4], [4.2, 1.4, 7.], [5.44, 44., 1.]];
         let a = Matrix::from(arr);
-        let u = a.lu_decomposition();
-        println!("{a}");
+        let (p, l, u) = a.lu_decomposition();
+        println!("{p}");
+        println!("{l}");
         println!("{u}");
     }
 }
