@@ -1,3 +1,4 @@
+use core::num;
 use std::{fmt::Display, iter::Sum, ops::{Add, Mul}};
 use num_traits;
 
@@ -13,6 +14,7 @@ pub struct Matrix<T, const M: usize, const N: usize> {
 pub type Vector<T, const N: usize> = Matrix<T, N, 1>;
 
 
+// General rectangular matrices
 impl<T, const M: usize, const N: usize> Matrix<T, M, N>
 where 
     T: Copy + num_traits::Num
@@ -28,11 +30,97 @@ where
         Matrix { data: data }
     }
 
+    /// transposing is just swapping rows and columns, so
+    /// AT_ji = A_ij
     pub fn transpose(&self) -> Matrix<T, N, M> {
-        todo!()
+        let mut ans = Matrix::<T, N, M>::zeros();
+        // row
+        for i in 0..M {
+            // col
+            for j in 0..N {
+                ans.data[j][i] = self.data[i][j];
+            }
+        }
+        ans
     }
 }
 
+impl<T, const M: usize, const N: usize> From<[[T; N]; M]> for Matrix<T, M, N> {
+    fn from(value: [[T; N]; M]) -> Self {
+        Self { data: value }
+    }
+}
+
+
+
+// Square matrices
+impl<T, const N: usize> Matrix<T, N, N>
+where
+    T: Copy + num_traits::Num
+{
+    /// Create an Identity matrix of size NxN
+    pub fn identity() -> Self {
+        let mut data = [[T::zero(); N]; N];
+        for i in 0..N {
+            data[i][i] = T::one();
+        }
+        Self { data: data }
+    }
+
+
+    /// Performs the LU factorization on the matrix and returns a tuple
+    /// 
+    /// (L, U)
+    ///  
+    /// This only works for floating point type matrices.
+    pub fn lu_decomposition(&self) -> Matrix<T, N, N>
+    where T: num_traits::Float + PartialOrd
+    {
+        let mut U = self.clone();
+        let mut L = Self::identity();
+
+        // 1) Permutation - put the biggest element by absolute value in the upper most position as pivot (numeric stability)
+        // 2) Elimination - row by row
+        for i in 0..N {
+            // find the row index where that column has the maximum value
+            let maybe_row_col_max = self.data.iter().enumerate().skip(i) // only look at data starting at row i
+                .map(|(row_i, row)| (row_i, row[i])) // get row index and element in data[row][i]
+                .fold(None, |acc, x| match acc {
+                    None => Some(x),
+                    Some(y) => match x.partial_cmp(&y) {
+                        Some(std::cmp::Ordering::Greater) => Some(x),
+                        Some(_) => Some(y),
+                        None => None,
+                    },
+                }).map(|x| x.0); // we're only interested in the row index
+            println!("{maybe_row_col_max:?}, {i}");
+            
+            // swap rows if necessary
+            if let Some(row_col_max) = maybe_row_col_max {
+                // if the largest element of column i isn't in row i, then swap the rows
+                if row_col_max != i {
+                    // permutation matrix
+                    U.data.swap(row_col_max, i);
+                }
+            }
+
+            // eliminate rows
+            for j in i+1..N {
+                let (top, bottom) = U.data.split_at_mut(j);
+                let row_i = &top[i];
+                let row_j = &mut bottom[0];
+
+                let factor = row_j[0] / row_i[0];
+                for k in i..N {
+                    println!("k is {k}, j is {j}");
+                    row_j[k] = row_j[k] - factor*row_i[k];
+                }
+            }    
+        }
+        U
+    }
+
+}
 
 // Matrix + Matrix addition
 impl<T, const M: usize, const N: usize> Add for &Matrix<T, M, N>
@@ -134,7 +222,11 @@ mod test {
         let a: Matrix<f64, 3, 2> = Matrix::zeros();
         // ones
         let b: Matrix<f64, 3, 2> = Matrix::ones();
-        // for array
+        // identity
+        let i = Matrix::<i64, 7, 7>::identity();
+        // from array
+        let arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+        let m = Matrix::from(arr);
     }
 
     #[test]
@@ -179,5 +271,20 @@ mod test {
         // Vector
         let v = Vector::<f64, 5>::ones();
         let w = &v * s;
+    }
+
+    #[test]
+    fn transpose() {
+        let a: Matrix<f64, 5, 2> = Matrix::ones();
+        let b = a.transpose();
+    }
+
+    #[test]
+    fn lu_factors() {
+        let arr = [[1., 2.], [4., 7.]];
+        let a = Matrix::from(arr);
+        let u = a.lu_decomposition();
+        println!("{a}");
+        println!("{u}");
     }
 }
