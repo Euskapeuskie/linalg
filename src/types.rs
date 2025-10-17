@@ -10,6 +10,7 @@ pub struct Matrix<T, const M: usize, const N: usize> {
     pub data: [[T; N]; M],
 }
 
+
 // column vector
 pub type Vector<T, const N: usize> = Matrix<T, N, 1>;
 
@@ -45,12 +46,13 @@ where
     }
 }
 
+
+// Matrix from array
 impl<T, const M: usize, const N: usize> From<[[T; N]; M]> for Matrix<T, M, N> {
     fn from(value: [[T; N]; M]) -> Self {
         Self { data: value }
     }
 }
-
 
 
 // Square matrices
@@ -119,8 +121,8 @@ where
         }
         U
     }
-
 }
+
 
 // Matrix + Matrix addition
 impl<T, const M: usize, const N: usize> Add for &Matrix<T, M, N>
