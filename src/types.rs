@@ -1,5 +1,4 @@
-use core::num;
-use std::{fmt::Display, iter::Sum, ops::{Add, Mul}};
+use std::{fmt::Display, ops::{Add, Mul}};
 use num_traits;
 
 
@@ -20,6 +19,19 @@ impl<T, const M: usize, const N: usize> Matrix<T, M, N>
 where 
     T: Copy + num_traits::Num
 {
+    /// number of rows
+    pub fn n_rows(&self) -> usize {
+        self.data.len()
+    }
+
+    /// number of columns
+    pub fn n_cols(&self) -> usize {
+        let maybe_n_cols = self.data.first();
+        if let Some(n_cols) = maybe_n_cols {
+            return n_cols.len();
+        }
+        0
+    }
     /// create a matrix of size MxN with just 0s
     pub fn zeros() -> Self {
         let data = [[T::zero(); N]; M];
@@ -81,19 +93,19 @@ where
     /// - L: Lower triangular matrix
     /// - U: Upper traingular matrix
     /// This only works for floating point type matrices.
-    pub fn lu_decomposition(&self) -> (Self, Self, Self)
+    pub fn lu_decomposition(&self) -> Result<(Self, Self, Self), String>
     where T: num_traits::Float,
     {
-        let mut P: Matrix<T, N, N> = Self::identity();
-        let mut L = Self::identity();
-        let mut U = self.clone();
+        let mut p: Matrix<T, N, N> = Self::identity();
+        let mut l = Self::identity();
+        let mut u = self.clone();
         
 
         // 1) Permutation - put the biggest element by absolute value in the upper most position as pivot (numeric stability)
         // 2) Elimination - row by row
         for i in 0..N {
             // find the row index where that column has the maximum value
-            let maybe_row_max_index = U.data.iter().enumerate().skip(i) // only look at rows from i downwards
+            let maybe_row_max_index = u.data.iter().enumerate().skip(i) // only look at rows from i downwards
                 .map(|(row_i, row)| (row_i, row[i])) // look at the i_th element in each row
                 .max_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).expect("Unable to order rows"))
                 .map(|(index, _)| index);
@@ -101,23 +113,28 @@ where
             // swap rows if necessary
             if let Some(row_max_index) = maybe_row_max_index {
                 // if the largest element of column i isn't in row i, then swap the rows
-                U.data.swap(row_max_index, i);
+                u.data.swap(row_max_index, i);
                 // calculate new permutation matrix
-                let mut P_i: Matrix<T, N, N> = Self::identity();
-                P_i.data.swap(row_max_index, i);
-                P = &P_i * &P;
+                let mut p_i: Matrix<T, N, N> = Self::identity();
+                p_i.data.swap(row_max_index, i);
+                p = &p_i * &p;
             }
 
             // eliminate rows
-            let (top, bottom) = U.data.split_at_mut(i+1);
+            let (top, bottom) = u.data.split_at_mut(i+1);
             let pivot_row = &top[i];
+            let pivot_factor = pivot_row[i];
 
             for j in 0..bottom.len() {
+                // Check if division by 0
+                if pivot_factor == T::from(0).unwrap() {
+                    return Err(String::from("Singular matrix cannot be factorized"));
+                }
                 let row_j = &mut bottom[j];
-                let factor = row_j[i] / pivot_row[i];
+                let factor = row_j[i] / pivot_factor;
                 // update L matrix: stores information
                 // "how did I eliminate element [i][j]"
-                L.data[i+1+j][i] = factor;
+                l.data[i+1+j][i] = factor;
                 // for every column in row j
                 for k in i..N {
                     row_j[k] = row_j[k] - factor*pivot_row[k]
@@ -125,7 +142,7 @@ where
             }
 
         }
-        (P, L, U)
+        Ok((p, l, u))
     }
 
 
@@ -232,14 +249,14 @@ mod test {
     #[test]
     fn create_matrix() {
         // zeros
-        let a: Matrix<f64, 3, 2> = Matrix::zeros();
+        let _a: Matrix<f64, 3, 2> = Matrix::zeros();
         // ones
-        let b: Matrix<f64, 3, 2> = Matrix::ones();
+        let _b: Matrix<f64, 3, 2> = Matrix::ones();
         // identity
-        let i = Matrix::<i64, 7, 7>::identity();
+        let _i = Matrix::<i64, 7, 7>::identity();
         // from array
         let arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
-        let m = Matrix::from(arr);
+        let _m = Matrix::from(arr);
     }
 
     #[test]
@@ -252,8 +269,9 @@ mod test {
 
     #[test]
     fn add_matrices() {
-        let a: Matrix<f64, 3, 2> = Matrix::ones();
-        let b: Matrix<usize, 10, 10> = Matrix::zeros();
+        let a: Matrix<usize, 5, 2> = Matrix::ones();
+        let b: Matrix<usize, 5, 2> = Matrix::zeros();
+        let _c = &a + &b;
     }
 
     #[test]
@@ -266,12 +284,12 @@ mod test {
         let a: Matrix<f64, 3, 3> = Matrix::ones();
         let b: Matrix<f64, 3, 3> = Matrix::ones();
         let d: Matrix<f64, 3, 3> = Matrix::ones();
-        let c = &(&a * &b) * &d;
-        let e = &a + &b;
+        let _c = &(&a * &b) * &d;
+        let _e = &a + &b;
 
         let a: Matrix<f64, 3, 7> = Matrix::ones();
         let b: Matrix<f64, 7, 3> = Matrix::ones();
-        let c = &a * &b;
+        let _c = &a * &b;
     }
 
     #[test]
@@ -279,26 +297,23 @@ mod test {
         // Matrix
         let a: Matrix<f64, 3, 2> = Matrix::ones();
         let s: f32 = 64.3;
-        let b = &a * s;
+        let _b = &a * s;
 
         // Vector
         let v = Vector::<f64, 5>::ones();
-        let w = &v * s;
+        let _w = &v * s;
     }
 
     #[test]
     fn transpose() {
         let a: Matrix<f64, 5, 2> = Matrix::ones();
-        let b = a.transpose();
+        let _b = a.transpose();
     }
 
     #[test]
     fn lu_factors() {
-        let arr = [[1., 2., 7.4], [4.2, 1.4, 7.], [5.44, 44., 1.]];
+        let arr = [[1., 0., 7.4], [0., 1., 0.], [0., 0., 0.]];
         let a = Matrix::from(arr);
-        let (p, l, u) = a.lu_decomposition();
-        println!("{p}");
-        println!("{l}");
-        println!("{u}");
+        let (_p, _l, _u) = a.lu_decomposition().unwrap();
     }
 }
