@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::{Add, Mul}};
+use std::{fmt::Display, ops::{Add, Index, IndexMut, Mul}};
 use num_traits;
 
 
@@ -216,6 +216,24 @@ where
 }
 
 
+// Index implementation
+impl<T, const M: usize, const N: usize> Index<usize> for Matrix<T, M, N>
+{
+    type Output = [T; N];
+    
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }
+}
+// IndexMut implementation
+impl<T, const M: usize, const N: usize> IndexMut<usize> for Matrix<T, M, N>
+{
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
+    }
+}
+
+
 // Display implementation (println!)
 impl<T, const M: usize, const N: usize> Display for Matrix<T, M, N>
 where
@@ -315,5 +333,14 @@ mod test {
         let arr = [[1., 0., 7.4], [0., 1., 0.], [0., 0., 0.]];
         let a = Matrix::from(arr);
         let (_p, _l, _u) = a.lu_decomposition().unwrap();
+    }
+
+    #[test]
+    fn index() {
+        let mut a = Matrix::<f64, 5, 5>::ones();
+        let x = a[3][4];
+        let y = &mut a[3][4];
+        *y = 4.0;
+        println!("{a}");
     }
 }
