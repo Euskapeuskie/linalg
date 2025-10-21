@@ -11,7 +11,7 @@ pub struct Matrix<T, const M: usize, const N: usize> {
 
 
 // column vector
-pub type Vector<T, const N: usize> = Matrix<T, N, 1>;
+pub type Vector<T, const M: usize> = Matrix<T, M, 1>;
 
 
 // General rectangular matrices
@@ -32,15 +32,37 @@ where
         }
         0
     }
+
     /// create a matrix of size MxN with just 0s
     pub fn zeros() -> Self {
         let data = [[T::zero(); N]; M];
         Matrix { data: data }
     }
+
     /// create a matrix of size MxN with just 1s
     pub fn ones() -> Self {
         let data = [[T::one(); N]; M];
         Matrix { data: data }
+    }
+
+    /// creates a matrix of size MxN with polynomial column values, starting at 0, so e.g. for poly = 2
+    /// [0, 0, 1]
+    /// [1, 1, 1]
+    /// [4, 2, 1]
+    /// [9, 3, 1]
+    /// ...
+    pub fn poly() -> Self
+    where 
+        T: From<u32>
+    {
+        let mut data = Self::ones();
+        for i in 0..M {
+            for j in 0..N {
+                let x = i.pow(j as u32) as u32;
+                data[i][j] = T::from(x);
+            }
+        }
+        data
     }
 
     /// transposing is just swapping rows and columns, so
@@ -51,24 +73,42 @@ where
         for i in 0..M {
             // col
             for j in 0..N {
-                ans.data[j][i] = self.data[i][j];
+                ans[j][i] = self[i][j];
             }
         }
         ans
     }
+
+    /// Add a column to the right end of the matrix
+    /// A_mn + B_m1 = C_mn+1
+    pub fn append_col(&self, col: &Vector<T, M>) -> Matrix<T, M, {N+1}> {
+        let mut ans = Matrix::<T, M, {N+1}>::zeros();
+        for i in 0..M {
+            for j in 0..N {
+                ans[i][j] = self[i][j];
+            }
+            ans[i][N] = col[i][0];
+        }
+        ans
+    }
+
+
+    /// Bring a matrix to reduced row echolon form
+    pub fn rref(&self) -> Self {
+        // Basically the same as U in LU decomposition but 0s are allowed in pivot positions
+        let mut ans = Matrix::<T, N, M>::zeros();
+        for i in 0..M {
+
+        }
+        todo!();
+    }
+
 
     pub fn pinv(&self) -> Self {
         todo!()
     }
 }
 
-
-// Matrix from array
-impl<T, const M: usize, const N: usize> From<[[T; N]; M]> for Matrix<T, M, N> {
-    fn from(value: [[T; N]; M]) -> Self {
-        Self { data: value }
-    }
-}
 
 
 // Square matrices
@@ -97,7 +137,7 @@ where
     where T: num_traits::Float,
     {
         let mut p: Matrix<T, N, N> = Self::identity();
-        let mut l = Self::identity();
+        let mut l = Self::zeros();
         let mut u = self.clone();
         
 
@@ -114,6 +154,7 @@ where
             if let Some(row_max_index) = maybe_row_max_index {
                 // if the largest element of column i isn't in row i, then swap the rows
                 u.data.swap(row_max_index, i);
+                l.data.swap(row_max_index, i);
                 // calculate new permutation matrix
                 let mut p_i: Matrix<T, N, N> = Self::identity();
                 p_i.data.swap(row_max_index, i);
@@ -142,14 +183,35 @@ where
             }
 
         }
+        // add the ones for the main diagonal of L
+        l = &l + &Self::identity();
         Ok((p, l, u))
     }
 
 
-    pub fn inv(&self) -> Self {
-        todo!()
+    pub fn inv(&self) -> Result<Self, String>
+    where
+        T: num_traits::Float,
+    {
+        // Use LU decomposition to calculate the inverse
+        // A * A.inv() = I | with A = LU
+        // LU * A.inv() = I | with y = U * A.inv()
+        // Ly = I --> solve for each row to get y
+        let mut y = Vector::<T, N>::zeros();
+        let (p, l, u) = self.lu_decomposition()?;
+        todo!();
     }
 }
+
+
+
+// Matrix from array
+impl<T, const M: usize, const N: usize> From<[[T; N]; M]> for Matrix<T, M, N> {
+    fn from(value: [[T; N]; M]) -> Self {
+        Self { data: value }
+    }
+}
+
 
 
 // Matrix + Matrix addition
@@ -281,8 +343,6 @@ mod test {
     fn print_matrix() {
         let a: Matrix<f64, 3, 2> = Matrix::ones();
         println!("{a}");
-        let b: Matrix<usize, 10, 10> = Matrix::zeros();
-        println!("{b}");
     }
 
     #[test]
@@ -290,11 +350,6 @@ mod test {
         let a: Matrix<usize, 5, 2> = Matrix::ones();
         let b: Matrix<usize, 5, 2> = Matrix::zeros();
         let _c = &a + &b;
-    }
-
-    #[test]
-    fn sub_matrices() {
-        todo!();
     }
 
     #[test]
@@ -338,9 +393,16 @@ mod test {
     #[test]
     fn index() {
         let mut a = Matrix::<f64, 5, 5>::ones();
-        let x = a[3][4];
-        let y = &mut a[3][4];
+        let _x = a[3][4]; // index borrow
+        let y = &mut a[3][4]; // index mut
         *y = 4.0;
-        println!("{a}");
+        println!("{a}"); // index borrow again
+    }
+
+    #[test]
+    fn append_col() {
+        let a = Matrix::<f64, 5, 5>::ones();
+        let v = Vector::<f64, 5>::ones();
+        let b = a.append_col(&v);
     }
 }
