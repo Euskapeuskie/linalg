@@ -32,10 +32,15 @@ impl<T, const N: usize> LinearSystem<T, N, N>
 where 
     T: Copy + num_traits::Num,
 {
-    /// Solve the linear system with PLU decomposition (Ax = b -> LUx = Pb)
+    /// Solves the linear system
+    /// Returns a Result that contains either the Vector that solves the system or an Error if the system cannot be solved.
+    /// Updates the variable x of the LinearSystem
+    /// 
+    /// 
+    /// This is done using PLU decomposition (Ax = b -> LUx = Pb)
     /// 1) Ly = Pb
     /// 2) Ux = y
-    pub fn solve(&mut self) -> Result<(), String>
+    pub fn solve(&mut self) -> Result<Vector<T, N>, String>
     where
         T: num_traits::Float
     {
@@ -76,8 +81,8 @@ where
                 x[i][0] = (y[i][0] - ans) / u[i][i];
             }
         }
-        self.x = Some(x);
-        Ok(())
+        self.x = Some(x.clone());
+        Ok(x)
     }
 }
 
@@ -98,6 +103,11 @@ mod test {
             [4., 3., 2.],
             [3., 2., 1.],
             [2., 1., 3.],
+        ];
+        let a = [
+            [1., 0., 0.],
+            [0., 1., 0.],
+            [1., 1., 0.],
         ];
         // let a = Matrix::<f64, 3, 3>::ones();
         let a = Matrix::from(a);

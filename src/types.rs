@@ -165,12 +165,12 @@ where
             let (top, bottom) = u.data.split_at_mut(i+1);
             let pivot_row = &top[i];
             let pivot_factor = pivot_row[i];
+            // Check if division by 0
+            if pivot_factor == T::from(0).unwrap() {
+                return Err(String::from("Singular matrix cannot be factorized"));
+            }
 
             for j in 0..bottom.len() {
-                // Check if division by 0
-                if pivot_factor == T::from(0).unwrap() {
-                    return Err(String::from("Singular matrix cannot be factorized"));
-                }
                 let row_j = &mut bottom[j];
                 let factor = row_j[i] / pivot_factor;
                 // update L matrix: stores information
@@ -385,7 +385,7 @@ mod test {
 
     #[test]
     fn lu_factors() {
-        let arr = [[1., 0., 7.4], [0., 1., 0.], [0., 0., 0.]];
+        let arr = [[1., 0., 7.4], [0., 1., 0.], [1., 0., 0.]];
         let a = Matrix::from(arr);
         let (_p, _l, _u) = a.lu_decomposition().unwrap();
     }
