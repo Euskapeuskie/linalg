@@ -34,6 +34,7 @@ where
 {
     /// Solves the linear system
     /// Returns a Result that contains either the Vector that solves the system or an Error if the system cannot be solved.
+    /// Assumes matrix A is invertible
     /// Updates the variable x of the LinearSystem
     /// 
     /// 
@@ -109,9 +110,16 @@ mod test {
             [0., 1., 0.],
             [1., 1., 0.],
         ];
+        let a = [
+            [2., -1., 0., -1.],
+            [-1., 3., -2., 0.],
+            [0., -2., 4., -2.],
+            [-1., 0., -2., 3.],
+        ];
+        let b = [[1.], [0.], [-1.], [0.]];
         // let a = Matrix::<f64, 3, 3>::ones();
         let a = Matrix::from(a);
-        let b = Vector::<f64, 3>::ones();
+        let b = Vector::from(b);
         let mut sys = LinearSystem::new(a,b);
         sys.solve();
         if let Some(x) = sys.x {

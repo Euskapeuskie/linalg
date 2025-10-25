@@ -1,4 +1,5 @@
-use std::{fmt::Display, ops::{Add, Index, IndexMut, Mul}};
+use core::num;
+use std::{fmt::Display, ops::{Add, Sub, Index, IndexMut, Mul}};
 use num_traits;
 
 
@@ -189,17 +190,47 @@ where
     }
 
 
+    /// Returns the inverse of the matrix or an error if the matrix is singular
+    /// uses LU-factorization for calculating the inverse
+    /// A * A.inv() = I | with PA = LU
+    /// LU * A.inv() = P*I | with Y = U * A.inv()
+    /// LY = P -> solve for Y
+    /// Resubstitution: U*A.inv() = Y -> solve for A.inv()
     pub fn inv(&self) -> Result<Self, String>
     where
         T: num_traits::Float,
     {
-        // Use LU decomposition to calculate the inverse
-        // A * A.inv() = I | with A = LU
-        // LU * A.inv() = I | with y = U * A.inv()
-        // Ly = I --> solve for each row to get y
-        let mut y = Vector::<T, N>::zeros();
         let (p, l, u) = self.lu_decomposition()?;
-        todo!();
+
+        // 1) Solve for LY = P
+        // L is a lower triangular matrix with only 1s on the main diagonal!
+        let mut y = Self::zeros();
+        // i: row we're acting on of Y
+        for i in 0..N {
+            // j: column of Y
+            for j in 0..N {
+                let mut sum = T::zero();
+                for k in 0..i {
+                    sum = sum + l[i][k] * y[k][j];
+                }
+                y[i][j] = (p[i][j] - sum) / l[i][i] // l[i][i] is always 1
+            }
+        }
+
+        // Solve for U*A.inv() = Y
+        // U is a upper triangular matrix, so start with last row
+        let mut a_inv = Self::zeros();
+        // start with last row because U = [0, 0, ...., x]
+        for i in (0..N).rev() {
+            for j in 0..N {
+                let mut ans = T::zero();
+                for k in i+1..N {
+                    ans = ans + u[i][k] * a_inv[k][j];
+                }
+                a_inv[i][j] = (y[i][j] - ans) / u[i][i];
+            }
+        }
+        Ok(a_inv)
     }
 }
 
@@ -209,6 +240,59 @@ where
 impl<T, const M: usize, const N: usize> From<[[T; N]; M]> for Matrix<T, M, N> {
     fn from(value: [[T; N]; M]) -> Self {
         Self { data: value }
+    }
+}
+
+
+// Matrix from lambda function
+impl<T, F, const M: usize, const N: usize> From<F> for Matrix<T, M, N>
+where
+    F: Fn(usize) -> [T; N],
+    T: Copy + num_traits::Num,
+{
+    fn from(value: F) -> Self {
+        let mut ans = Self::zeros();
+        for i in 0..M {
+            ans[i] = value(i);
+        }
+        ans
+    }
+}
+
+
+// Matrix from function and array with specified points
+impl<T, F, const M: usize, const N: usize> From<(F, [T; M])> for Matrix<T, M, N>
+where
+    F: Fn(T) -> [T; N],
+    T: Copy + num_traits::Num, 
+{
+    fn from(value: (F, [T; M])) -> Self {
+        let(f, ts ) = value;
+        let mut ans = Self::zeros();
+
+        for i in 0..M {
+            ans[i] = f(ts[i]);
+        }
+        ans
+    }
+}
+
+
+// Matrix from function and step_size
+impl<T, F, const M: usize, const N: usize> From<(F, T)> for Matrix<T, M, N>
+where
+    F: Fn(T) -> [T; N],
+    T: Copy + num_traits::Float,
+{
+    fn from(value: (F, T)) -> Self {
+        let (f, stepsize) = value;
+        let mut ans = Self::zeros();
+
+        for i in 0..M {
+            let x = T::from(i).unwrap() * stepsize;
+            ans[i] = f(x);
+        }
+        ans
     }
 }
 
@@ -225,10 +309,29 @@ where
 
         let mut ans = Matrix::zeros();
         // for each row
-        for m in 0..M {
+        for i in 0..M {
             // for each column
-            for n in 0..N {
-                ans.data[m][n] = self.data[m][n] + rhs.data[m][n];
+            for j in 0..N {
+                ans[i][j] = self[i][j] + rhs[i][j];
+            }
+        }
+        ans
+    }
+}
+
+
+// Matrix + Matrix subtraction
+impl<T, const M: usize, const N: usize> Sub for &Matrix<T, M, N>
+where 
+    T: Copy + num_traits::Num
+{
+    type Output = Matrix<T, M, N>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let mut ans = Matrix::zeros();
+        for i in 0..M {
+            for j in 0..N {
+                ans[i][j] = self[i][j] - rhs[i][j];
             }
         }
         ans
@@ -337,6 +440,15 @@ mod test {
         // from array
         let arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
         let _m = Matrix::from(arr);
+
+        let _f = Matrix::<_, 10, _>::from(|x: usize| [1, x, x.pow(2)]);
+        println!("{_f}");
+        let ts = [0.1, 0.2, 0.34];
+        let _ft = Matrix::<f64, _, _>::from((|x: f64| [1.0, x, x.powf(0.3)], ts));
+        println!("{_ft}");
+
+        let _fstep = Matrix::<f64, 10, _>::from((|x: f64| [x.powi(2)], 0.1));
+        println!("{_fstep}");
     }
 
     #[test]
@@ -346,10 +458,11 @@ mod test {
     }
 
     #[test]
-    fn add_matrices() {
+    fn add_sub_matrices() {
         let a: Matrix<usize, 5, 2> = Matrix::ones();
         let b: Matrix<usize, 5, 2> = Matrix::zeros();
         let _c = &a + &b;
+        let _d = &a - &b;
     }
 
     #[test]
@@ -404,5 +517,18 @@ mod test {
         let a = Matrix::<f64, 5, 5>::ones();
         let v = Vector::<f64, 5>::ones();
         let b = a.append_col(&v);
+    }
+
+    #[test]
+    fn inverse() {
+        let a = [
+            [1., 1., 1.],
+            [2., 3., 3.],
+            [3., 4., 5.],
+        ];
+        let a = Matrix::from(a);
+        let inv = a.inv().unwrap();
+        println!("Inverse:");
+        println!("{inv}");
     }
 }
