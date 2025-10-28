@@ -80,19 +80,6 @@ where
         ans
     }
 
-    /// Add a column to the right end of the matrix
-    /// A_mn + B_m1 = C_mn+1
-    pub fn append_col(&self, col: &Vector<T, M>) -> Matrix<T, M, {N+1}> {
-        let mut ans = Matrix::<T, M, {N+1}>::zeros();
-        for i in 0..M {
-            for j in 0..N {
-                ans[i][j] = self[i][j];
-            }
-            ans[i][N] = col[i][0];
-        }
-        ans
-    }
-
 
     /// Bring a matrix to reduced row echolon form
     pub fn rref(&self) -> Self {
@@ -234,6 +221,21 @@ where
     }
 }
 
+
+
+// Vectors
+impl<T, const M: usize> Vector<T, M>
+where
+    T: num_traits::Float,
+{
+
+    /// Returns the magnitude or length of a vector:
+    /// sqrt(x_transpose * x)
+    pub fn magnitude(&self) -> T {
+        let x = &(self.transpose()) * self;
+        x[0][0].sqrt()
+    }
+}
 
 
 // Matrix from array
@@ -510,13 +512,6 @@ mod test {
         let y = &mut a[3][4]; // index mut
         *y = 4.0;
         println!("{a}"); // index borrow again
-    }
-
-    #[test]
-    fn append_col() {
-        let a = Matrix::<f64, 5, 5>::ones();
-        let v = Vector::<f64, 5>::ones();
-        let b = a.append_col(&v);
     }
 
     #[test]

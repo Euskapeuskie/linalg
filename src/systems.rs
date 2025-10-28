@@ -5,24 +5,41 @@ use crate::types::{Matrix, Vector};
 // Linear system of equations Ax = b
 pub struct LinearSystem<T, const M: usize, const N: usize> {
     A: Matrix<T, M, N>,
+    b: Vector<T, M>,
     x: Option<Vector<T, N>>,
-    b: Vector<T, N>
+    total_error: Option<T>,
 }
 
 impl<T, const M: usize, const N: usize> LinearSystem<T, M, N>
 where 
     T: Copy + num_traits::Num,
 {
-    pub fn new(A: Matrix<T, M, N>, b: Vector<T, N>) -> Self {
+    pub fn new(A: Matrix<T, M, N>, b: Vector<T, M>) -> Self {
         Self {
             A: A,
+            b: b,
             x: None,
-            b: b
+            total_error: None,
         }
     }
 
-    pub fn least_sq(&mut self) -> Vector<T, N> {
-        todo!()
+
+    /// Linear least squares approximation to fit the linear system to the given bs
+    /// Returns the resulting best approximation x_hat or an error if A doesn't have full column rank (and is thereby not invertible)
+    /// 
+    /// Also updates internally:
+    /// self.x = x_hat
+    /// self.total_error = (b - A*x_hat).magnitude().powi(2)
+    pub fn least_sq(&mut self) -> Result<Vector<T, N>, String> 
+    where
+        T: num_traits::Float,
+    {
+        let a_hat = (&self.A.transpose() * &self.A).inv()?;
+        let b_hat = &self.A.transpose() * &self.b;
+        let x_hat = &a_hat * &b_hat;
+        self.x = Some(x_hat.clone());
+        self.total_error = Some((&self.b - &(&self.A * &x_hat)).magnitude().powi(2));
+        Ok(x_hat)
     }
 }
 
@@ -83,6 +100,7 @@ where
             }
         }
         self.x = Some(x.clone());
+        self.total_error = Some(T::zero());
         Ok(x)
     }
 }
@@ -125,5 +143,22 @@ mod test {
         if let Some(x) = sys.x {
             println!("Solution to system:\n{x}");
         }
+    }
+
+    #[test]
+    fn least_sq() {
+        let a = [
+            [-1., 1.],
+            [1., 1.],
+            [2., 4.],
+        ];
+        let a = Matrix::from(a);
+        let b = [[-2., 1., 5.]];
+        let b = Matrix::from(b).transpose();
+        let mut sys = LinearSystem::new(a, b);
+        let x = sys.least_sq().unwrap();
+        println!("{x}");
+        let err = sys.total_error.unwrap();
+        println!("{err}");
     }
 }
