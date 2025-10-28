@@ -1,4 +1,3 @@
-use core::num;
 use std::{fmt::Display, ops::{Add, Sub, Index, IndexMut, Mul}};
 use num_traits;
 
@@ -46,25 +45,6 @@ where
         Matrix { data: data }
     }
 
-    /// creates a matrix of size MxN with polynomial column values, starting at 0, so e.g. for poly = 2
-    /// [0, 0, 1]
-    /// [1, 1, 1]
-    /// [4, 2, 1]
-    /// [9, 3, 1]
-    /// ...
-    pub fn poly() -> Self
-    where 
-        T: From<u32>
-    {
-        let mut data = Self::ones();
-        for i in 0..M {
-            for j in 0..N {
-                let x = i.pow(j as u32) as u32;
-                data[i][j] = T::from(x);
-            }
-        }
-        data
-    }
 
     /// transposing is just swapping rows and columns, so
     /// AT_ji = A_ij
@@ -81,14 +61,55 @@ where
     }
 
 
-    /// Bring a matrix to reduced row echolon form
-    pub fn rref(&self) -> Self {
-        // Basically the same as U in LU decomposition but 0s are allowed in pivot positions
-        let mut ans = Matrix::<T, N, M>::zeros();
-        for i in 0..M {
+    /// Bring a matrix to row echelon form
+    pub fn row_echelon(&self) -> Self 
+    where
+        T: num_traits::Float
 
+    {
+        let mut u = self.clone();
+        let max_iter = M.min(N);
+
+        // 1) Permutation - put the biggest element by absolute value in the upper most position as pivot (numeric stability)
+        // 2) Elimination - row by row
+        for i in 0..max_iter {
+            // find the row index where that column has the maximum value
+            let maybe_row_max_index = u.data.iter().enumerate().skip(i) // only look at rows from i downwards
+                .map(|(row_i, row)| (row_i, row[i])) // look at the i_th element in each row
+                .max_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).expect("Unable to order rows"))
+                .map(|(index, _)| index);
+
+            // swap rows if necessary
+            if let Some(row_max_index) = maybe_row_max_index {
+                // if the largest element of column i isn't in row i, then swap the rows
+                u.data.swap(row_max_index, i);
+            }
+
+            // eliminate rows
+            let (top, bottom) = u.data.split_at_mut(i+1);
+            let pivot_row = &top[i];
+            let pivot_factor = pivot_row[i];
+
+            // Check if pivot is a 0 -> if yes go to the next row
+            if pivot_factor.is_zero() {
+                continue
+            }
+
+            for j in 0..bottom.len() {
+                let row_j = &mut bottom[j];
+                let factor = row_j[i] / pivot_factor;
+                for k in i..N {
+                    row_j[k] = row_j[k] - factor*pivot_row[k]
+                }
+            }
         }
-        todo!();
+        u
+    }
+
+
+    /// produces an orthonormal basis Q and an upper triangular matrix R that satisfy A = QR
+    pub fn qr_factorization(&self) -> () {
+        todo!()
     }
 
 
@@ -154,7 +175,7 @@ where
             let pivot_row = &top[i];
             let pivot_factor = pivot_row[i];
             // Check if division by 0
-            if pivot_factor == T::from(0).unwrap() {
+            if pivot_factor.is_zero() {
                 return Err(String::from("Singular matrix cannot be factorized"));
             }
 
@@ -218,6 +239,22 @@ where
             }
         }
         Ok(a_inv)
+    }
+
+
+    /// Calculates the determinant of a square matrix
+    /// 1) Bring matrix in upper triangular form (keep track of row exchanges)
+    /// 2) Determinant = (-1)^n_row_changes * product of pivots
+    pub fn det(&self) -> T 
+    where
+        T: num_traits::Float
+    {
+        let u = self.row_echelon();
+        let mut ans = T::one();
+        for i in 0..N {
+            ans = ans * u[i][i];
+        }
+        ans
     }
 }
 
@@ -525,5 +562,15 @@ mod test {
         let inv = a.inv().unwrap();
         println!("Inverse:");
         println!("{inv}");
+    }
+
+
+    #[test]
+    fn row_echelon() {
+        let a = Matrix::<f64, 4, 4>::identity();
+        let t = a.row_echelon();
+        println!("{t}");
+        let det = a.det();
+        println!("{det}");
     }
 }
