@@ -109,6 +109,7 @@ where
     /// Compute the QR decomposition of the matrix that satisfies A = QR using Gram-Schmidt
     /// - Q: Orthonomormal basis of the column space of A
     /// - R: Upper triangular matrix
+    /// Returns (q, r)
     /// 
     /// Internal workings:
     /// 1) choose the first non-zero column as my initial basis

@@ -10,6 +10,7 @@ impl<T, const M: usize, const N: usize> From<[[T; N]; M]> for Matrix<T, M, N> {
     }
 }
 
+
 // Matrix from slice
 impl<T, const M: usize, const N: usize> From<&[T]> for Matrix<T, M, N> 
 where 
