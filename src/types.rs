@@ -45,6 +45,12 @@ where
     }
 
 
+    /// As slice
+    pub fn as_slice(&self) -> &[T] {
+        &self[..M]
+    }
+
+
     /// transposing is just swapping rows and columns, so
     /// AT_ji = A_ij
     pub fn transpose(&self) -> Matrix<T, N, M> {
@@ -321,11 +327,10 @@ where
 
 
     /// Vector into Array
-    pub fn to_array(&self) -> [T; M] {
+    pub fn to_array(self) -> [T; M] {
         self.transpose()[0]
     }
 }
-
 
 
 
@@ -452,5 +457,14 @@ mod test {
         let (q, r) = a.qr_decomposition();
         println!("{q}");
         println!("{r}");
+    }
+
+
+    #[test]
+    fn vector() {
+        let a = [1, 2, 3, 4];
+        let a = Vector::from(a.map(|x| [x]));
+        let a = &a[..4];
+        println!("{a:?}");
     }
 }

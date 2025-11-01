@@ -224,6 +224,7 @@ impl<T, const M: usize, const N: usize> IndexMut<usize> for Matrix<T, M, N>
 
 
 // Index multiple rows
+// Rust guarantees that an array is contiguous in memory
 impl<T, const M: usize, const N: usize> Index<RangeTo<usize>> for Matrix<T, M, N>
 {
     type Output = [T];
@@ -235,6 +236,8 @@ impl<T, const M: usize, const N: usize> Index<RangeTo<usize>> for Matrix<T, M, N
 
         let start_address = self.data.as_ptr() as *const T; // start address
         let n_elements = index.end * N; // n_elements
+
+        assert!(n_elements <= M*N, "range index bigger than size of array"); // bounds check
         // build and return the pointer
         unsafe {
             std::slice::from_raw_parts(start_address, n_elements)
