@@ -1,4 +1,3 @@
-use std::{fmt::Display, ops::{Add, Sub, Index, IndexMut, Mul}};
 use num_traits;
 
 
@@ -107,9 +106,50 @@ where
     }
 
 
-    /// produces an orthonormal basis Q and an upper triangular matrix R that satisfy A = QR
-    pub fn qr_factorization(&self) -> () {
-        todo!()
+    /// Compute the QR decomposition of the matrix that satisfies A = QR using Gram-Schmidt
+    /// - Q: Orthonomormal basis of the column space of A
+    /// - R: Upper triangular matrix
+    /// 
+    /// Internal workings:
+    /// 1) choose the first non-zero column as my initial basis
+    /// 2) calculate for each following column...
+    pub fn qr_decomposition(&self) -> (Matrix<T, N, M>, Self)
+    where 
+        T: num_traits::Float
+    {
+
+        // transpose columns into rows just more convenient to work with
+        let mut q = Self::zeros().transpose();
+        let mut r = Self::zeros();
+
+        // Build the Q-Matrix
+        for i in 0..self.n_cols() {
+            q[i] = {
+                // b is the vector we want to orthonormalize to q
+                let mut b = Vector::from(self.transpose()[i].map(|x| [x]));
+
+                // subtract the components of b in the other orthonormal directions to get only the new component of b
+                for j in 0..i {
+                    let a = Vector::from(q[j].map(|x| [x]));
+                    b  = &b - &(&a * (((&a.transpose() * &b)[0][0]) / ((&a.transpose() * &a)[0][0])));
+                }
+                // normalize b to unit length
+                b = &b * (T::one()/b.magnitude());
+                b.to_array()
+            };
+        }
+
+        // Build the R-Matrix
+        for i in 0..self.n_cols() {
+            for j in 0..self.n_rows() {
+                // r_ij = (a_j)T*q_i --> column vector j of A times row vector i of Q
+                let a = Vector::from(self.transpose()[j].map(|x| [x]));
+                let q = Vector::from(q[i].map(|x| [x]));
+                r[i][j] = (&a.transpose() * &q)[0][0];
+            }
+        }
+
+        (q, r)
     }
 
 
@@ -245,10 +285,12 @@ where
     /// Calculates the determinant of a square matrix
     /// 1) Bring matrix in upper triangular form (keep track of row exchanges)
     /// 2) Determinant = (-1)^n_row_changes * product of pivots
+    /// TODO: (-1)^n_row_changes!
     pub fn det(&self) -> T 
     where
         T: num_traits::Float
     {
+        todo!();
         let u = self.row_echelon();
         let mut ans = T::one();
         for i in 0..N {
@@ -263,207 +305,32 @@ where
 // Vectors
 impl<T, const M: usize> Vector<T, M>
 where
-    T: num_traits::Float,
+    T: Copy + num_traits::Num
 {
 
     /// Returns the magnitude or length of a vector:
     /// sqrt(x_transpose * x)
-    pub fn magnitude(&self) -> T {
+    pub fn magnitude(&self) -> T
+    where
+        T: num_traits::Float,
+    {
         let x = &(self.transpose()) * self;
         x[0][0].sqrt()
     }
-}
 
 
-// Matrix from array
-impl<T, const M: usize, const N: usize> From<[[T; N]; M]> for Matrix<T, M, N> {
-    fn from(value: [[T; N]; M]) -> Self {
-        Self { data: value }
+    /// Vector into Array
+    pub fn to_array(&self) -> [T; M] {
+        self.transpose()[0]
     }
 }
 
-
-// Matrix from lambda function
-impl<T, F, const M: usize, const N: usize> From<F> for Matrix<T, M, N>
-where
-    F: Fn(usize) -> [T; N],
-    T: Copy + num_traits::Num,
-{
-    fn from(value: F) -> Self {
-        let mut ans = Self::zeros();
-        for i in 0..M {
-            ans[i] = value(i);
-        }
-        ans
-    }
-}
-
-
-// Matrix from function and array with specified points
-impl<T, F, const M: usize, const N: usize> From<(F, [T; M])> for Matrix<T, M, N>
-where
-    F: Fn(T) -> [T; N],
-    T: Copy + num_traits::Num, 
-{
-    fn from(value: (F, [T; M])) -> Self {
-        let(f, ts ) = value;
-        let mut ans = Self::zeros();
-
-        for i in 0..M {
-            ans[i] = f(ts[i]);
-        }
-        ans
-    }
-}
-
-
-// Matrix from function and step_size
-impl<T, F, const M: usize, const N: usize> From<(F, T)> for Matrix<T, M, N>
-where
-    F: Fn(T) -> [T; N],
-    T: Copy + num_traits::Float,
-{
-    fn from(value: (F, T)) -> Self {
-        let (f, stepsize) = value;
-        let mut ans = Self::zeros();
-
-        for i in 0..M {
-            let x = T::from(i).unwrap() * stepsize;
-            ans[i] = f(x);
-        }
-        ans
-    }
-}
-
-
-
-// Matrix + Matrix addition
-impl<T, const M: usize, const N: usize> Add for &Matrix<T, M, N>
-where 
-    T: Copy + num_traits::Num
-{
-    type Output = Matrix<T, M, N>;
-
-    fn add(self, rhs: Self) -> Self::Output {
-
-        let mut ans = Matrix::zeros();
-        // for each row
-        for i in 0..M {
-            // for each column
-            for j in 0..N {
-                ans[i][j] = self[i][j] + rhs[i][j];
-            }
-        }
-        ans
-    }
-}
-
-
-// Matrix + Matrix subtraction
-impl<T, const M: usize, const N: usize> Sub for &Matrix<T, M, N>
-where 
-    T: Copy + num_traits::Num
-{
-    type Output = Matrix<T, M, N>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        let mut ans = Matrix::zeros();
-        for i in 0..M {
-            for j in 0..N {
-                ans[i][j] = self[i][j] - rhs[i][j];
-            }
-        }
-        ans
-    }
-}
-
-
-// Matrix x Matrix multiplication rectangular
-impl<T, U, const M: usize, const N: usize, const P: usize> Mul<&Matrix<U, N, P>> for &Matrix<T, M, N>
-where 
-    T: Copy + num_traits::Num + From<U>,
-    U: Copy + num_traits::Num,
-{
-    type Output = Matrix<T, M, P>;
-
-    fn mul(self, rhs: &Matrix<U, N, P>) -> Self::Output {
-        let mut ans = Matrix::<T, M, P>::zeros();
-        for i in 0..M {
-            for j in 0..P {
-                ans.data[i][j] = (0..N)
-                    .map(|k| self.data[i][k] * T::from(rhs.data[k][j]))
-                    .fold(T::zero(), |acc, x| acc+x);
-            }
-        }
-        ans
-    }
-}
-
-
-// Matrix x Scalar multiplication
-impl<T, U, const M: usize, const N: usize> Mul<U> for &Matrix<T, M, N>
-where 
-    T: Copy + From<U> + num_traits::Num,
-    U: Copy + num_traits::Num
-{
-    type Output = Matrix<T, M, N>;
-
-    fn mul(self, rhs: U) -> Self::Output {
-        let mut ans = self.clone();
-        for i in 0..M {
-            for j in 0..N {
-                ans.data[i][j] = T::from(rhs) * ans.data[i][j];
-            }
-        }
-        ans
-    }
-}
-
-
-// Index implementation
-impl<T, const M: usize, const N: usize> Index<usize> for Matrix<T, M, N>
-{
-    type Output = [T; N];
-    
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.data[index]
-    }
-}
-// IndexMut implementation
-impl<T, const M: usize, const N: usize> IndexMut<usize> for Matrix<T, M, N>
-{
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.data[index]
-    }
-}
-
-
-// Display implementation (println!)
-impl<T, const M: usize, const N: usize> Display for Matrix<T, M, N>
-where
-    T: Display
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for row in self.data.iter() {
-            write!(f, "[")?;
-            for (i, col) in row.iter().enumerate() {
-                if i == row.len()-1 {
-                    write!(f, "{col}")?;
-                }
-                else {
-                    write!(f, "{col}, ")?;
-                }
-            }
-            write!(f, "]\n")?;
-        }
-        Ok(())
-    }
-}
 
 
 
 
 // TESTS
+#[cfg(test)]
 mod test {
     use crate::types::Matrix;
     use crate::types::Vector;
@@ -564,7 +431,6 @@ mod test {
         println!("{inv}");
     }
 
-
     #[test]
     fn row_echelon() {
         let a = Matrix::<f64, 4, 4>::identity();
@@ -572,5 +438,18 @@ mod test {
         println!("{t}");
         let det = a.det();
         println!("{det}");
+    }
+
+    #[test]
+    fn qr_decomposition() {
+        let a = [
+            [1., 2., 4.],
+            [0., 0., 5.],
+            [0., 3., 6.],
+        ];
+        let a = Matrix::from(a);
+        let (q, r) = a.qr_decomposition();
+        println!("{q}");
+        println!("{r}");
     }
 }
