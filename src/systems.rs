@@ -25,20 +25,38 @@ where
 
 
     /// Linear least squares approximation to fit the linear system to the given bs
-    /// Returns the resulting best approximation x_hat or an error if A doesn't have full column rank (and is thereby not invertible)
+    /// Returns the resulting best approximation x_hat
     /// 
     /// Also updates internally:
     /// self.x = x_hat
     /// self.total_error = (b - A*x_hat).magnitude().powi(2)
+    /// 
+    /// Uses QR-decomposition as a numerically stable solution
+    /// A = QR
+    /// A * x_hat = b
+    /// -> QR * x_hat = b | *Q^T (with Q^T = Q^-1 for orthonormal basis)
+    /// -> R * x_hat = Q^T * b
+    /// R is upper triangular
     pub fn least_sq(&mut self) -> Result<Vector<T, N>, String> 
     where
         T: num_traits::Float,
     {
-        let a_hat = (&self.A.transpose() * &self.A).inv()?;
-        let b_hat = &self.A.transpose() * &self.b;
-        let x_hat = &a_hat * &b_hat;
+        let mut x_hat = Vector::<T, N>::zeros();
+        let (q, r) = self.A.qr_decomposition();
+
+        let mut res = &q.transpose() * &self.b;
+        for i in (0..N).rev() {
+            for j in (i..N) {
+                res[i][0] = res[i][0] - r[i][j]*x_hat[j][0]
+            }
+            x_hat[i][0] = res[i][0] / r[i][i];
+        }
+
         self.x = Some(x_hat.clone());
+
+        // total error = ||(measurement_vec - estimate_vec)||²
         self.total_error = Some((&self.b - &(&self.A * &x_hat)).magnitude().powi(2));
+
         Ok(x_hat)
     }
 }
@@ -148,17 +166,17 @@ mod test {
     #[test]
     fn least_sq() {
         let a = [
-            [-1., 1.],
             [1., 1.],
-            [2., 4.],
+            [1., 2.],
+            [1., 3.],
         ];
         let a = Matrix::from(a);
-        let b = [[-2., 1., 5.]];
+        let b = [[1., 2., 3.]];
         let b = Matrix::from(b).transpose();
         let mut sys = LinearSystem::new(a, b);
         let x = sys.least_sq().unwrap();
         println!("{x}");
-        let err = sys.total_error.unwrap();
-        println!("{err}");
+        let error = sys.total_error.unwrap();
+        println!("{error}");
     }
 }

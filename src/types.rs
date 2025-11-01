@@ -120,16 +120,16 @@ where
     /// Internal workings:
     /// 1) choose the first non-zero column as my initial basis
     /// 2) calculate for each following column...
-    pub fn qr_decomposition(&self) -> (Matrix<T, N, M>, Self)
+    pub fn qr_decomposition(&self) -> (Matrix<T, M, M>, Self)
     where 
         T: num_traits::Float
     {
 
         // transpose columns into rows just more convenient to work with
-        let mut q = Self::zeros().transpose();
-        let mut r = Self::zeros();
+        let mut q = Matrix::<T, M, M>::zeros();
 
-        // Build the Q-Matrix
+        // Build the Q-Matrix row by row
+        // q[i] is supposed to be the first column of the later q, that's why transposing after the for loop
         for i in 0..self.n_cols() {
             q[i] = {
                 // b is the vector we want to orthonormalize to q
@@ -145,16 +145,12 @@ where
                 b.to_array()
             };
         }
+        // transpose Q so orthonormal basis are now column vectors
+        q = q.transpose();
 
-        // Build the R-Matrix
-        for i in 0..self.n_cols() {
-            for j in 0..self.n_rows() {
-                // r_ij = (a_j)T*q_i --> column vector j of A times row vector i of Q
-                let a = Vector::from(self.transpose()[j].map(|x| [x]));
-                let q = Vector::from(q[i].map(|x| [x]));
-                r[i][j] = (&a.transpose() * &q)[0][0];
-            }
-        }
+        // Build the R-Matrix:
+        // A = QR with Q^T = Q^-1 -> R = Q^T*A
+        let r = &q.transpose() * self;
 
         (q, r)
     }
@@ -305,6 +301,15 @@ where
         }
         ans
     }
+
+
+    pub fn eig(&self) -> () {
+        todo!()
+    }
+
+    pub fn eigvals(&self) -> () {
+        todo!()
+    }
 }
 
 
@@ -452,6 +457,8 @@ mod test {
             [1., 2., 4.],
             [0., 0., 5.],
             [0., 3., 6.],
+            [0., 1., 2.],
+            [1., 7., -1.]
         ];
         let a = Matrix::from(a);
         let (q, r) = a.qr_decomposition();
