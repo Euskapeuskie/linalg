@@ -113,20 +113,20 @@ where
 
 
     /// Compute the QR decomposition of the matrix that satisfies A = QR using Gram-Schmidt
-    /// - Q: Orthonomormal basis of the column space of A
-    /// - R: Upper triangular matrix
+    /// - Q: Orthonomormal basis of the column space of A. Q is of size m x n
+    /// - R: Upper triangular matrix. R is of size n x n
     /// Returns (q, r)
     /// 
     /// Internal workings:
     /// 1) choose the first non-zero column as my initial basis
     /// 2) calculate for each following column...
-    pub fn qr_decomposition(&self) -> (Matrix<T, M, M>, Self)
+    pub fn qr_decomposition(&self) -> (Self, Matrix<T, N, N>)
     where 
         T: num_traits::Float
     {
 
         // transpose columns into rows just more convenient to work with
-        let mut q = Matrix::<T, M, M>::zeros();
+        let mut q = Self::zeros().transpose();
 
         // Build the Q-Matrix row by row
         // q[i] is supposed to be the first column of the later q, that's why transposing after the for loop
@@ -145,14 +145,14 @@ where
                 b.to_array()
             };
         }
-        // transpose Q so orthonormal basis are now column vectors
-        q = q.transpose();
+
 
         // Build the R-Matrix:
         // A = QR with Q^T = Q^-1 -> R = Q^T*A
-        let r = &q.transpose() * self;
-
-        (q, r)
+        let r = &q * self;
+        
+        // transpose Q so orthonormal basis are now column vectors
+        (q.transpose(), r)
     }
 
 
