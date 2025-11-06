@@ -164,19 +164,18 @@ where
 
 
 // Matrix x Matrix multiplication rectangular
-impl<T, U, const M: usize, const N: usize, const P: usize> Mul<&Matrix<U, N, P>> for &Matrix<T, M, N>
+impl<T, const M: usize, const N: usize, const P: usize> Mul<&Matrix<T, N, P>> for &Matrix<T, M, N>
 where 
-    T: Copy + num_traits::Num + From<U>,
-    U: Copy + num_traits::Num,
+    T: Copy + num_traits::Num
 {
     type Output = Matrix<T, M, P>;
 
-    fn mul(self, rhs: &Matrix<U, N, P>) -> Self::Output {
+    fn mul(self, rhs: &Matrix<T, N, P>) -> Self::Output {
         let mut ans = Matrix::<T, M, P>::zeros();
         for i in 0..M {
             for j in 0..P {
                 ans.data[i][j] = (0..N)
-                    .map(|k| self.data[i][k] * T::from(rhs.data[k][j]))
+                    .map(|k| self.data[i][k] * rhs.data[k][j])
                     .fold(T::zero(), |acc, x| acc+x);
             }
         }
@@ -186,18 +185,17 @@ where
 
 
 // Matrix x Scalar multiplication
-impl<T, U, const M: usize, const N: usize> Mul<U> for &Matrix<T, M, N>
+impl<T, const M: usize, const N: usize> Mul<T> for &Matrix<T, M, N>
 where 
-    T: Copy + From<U> + num_traits::Num,
-    U: Copy + num_traits::Num
+    T: Copy + num_traits::Num,
 {
     type Output = Matrix<T, M, N>;
 
-    fn mul(self, rhs: U) -> Self::Output {
+    fn mul(self, rhs: T) -> Self::Output {
         let mut ans = self.clone();
         for i in 0..M {
             for j in 0..N {
-                ans.data[i][j] = T::from(rhs) * ans.data[i][j];
+                ans.data[i][j] = rhs * ans.data[i][j];
             }
         }
         ans

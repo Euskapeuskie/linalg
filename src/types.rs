@@ -1,4 +1,5 @@
 use num_traits;
+use num_complex::Complex;
 
 
 // general 2d-matrix
@@ -335,6 +336,28 @@ where
     pub fn to_array(self) -> [T; M] {
         self.transpose()[0]
     }
+
+
+    /// FFT transform
+    pub fn dft(&self) -> Matrix<Complex<T>, M, 1>
+    where
+        T: num_traits::Float,
+    {
+        // Direct algorithm: Build matrix -> calculate Matrix x Vector product
+        let mut f = Matrix::<Complex<T>, M, M>::zeros();
+        for i in 0..M {
+            for j in 0..M {
+                // use f64 for accuracy, convert to T (which might be f32) later
+                let theta = -2.0 * std::f64::consts::PI * (i as f64) * (j as f64) / (M as f64);
+                let f_ij = Complex::new(0.0, theta).exp();
+                // convert to T
+                f[i][j] = Complex::new(T::from(f_ij.re).unwrap(), T::from(f_ij.im).unwrap());
+            }
+        }
+        let t = Matrix::from(self.data.map(|x| [Complex::from(x[0])]));
+        let x = &f * &t;
+        x
+    }
 }
 
 
@@ -399,7 +422,7 @@ mod test {
     fn mul_matrix_scalar() {
         // Matrix
         let a: Matrix<f64, 3, 2> = Matrix::ones();
-        let s: f32 = 64.3;
+        let s: f64 = 64.3;
         let _b = &a * s;
 
         // Vector
@@ -473,5 +496,13 @@ mod test {
         let a = Vector::from(a.map(|x| [x]));
         let a = &a[..4];
         println!("{a:?}");
+    }
+
+    #[test]
+    fn fft() {
+        let a = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.];
+        let a = Vector::from(a.map(|x| [x]));
+        let f = a.dft();
+        println!("{f}");
     }
 }

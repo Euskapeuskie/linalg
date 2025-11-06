@@ -46,7 +46,7 @@ where
 
         let mut res = &q.transpose() * &self.b;
         for i in (0..N).rev() {
-            for j in (i..N) {
+            for j in i..N {
                 res[i][0] = res[i][0] - r[i][j]*x_hat[j][0]
             }
             x_hat[i][0] = res[i][0] / r[i][i];
