@@ -123,13 +123,13 @@ where
 
 
 // &Matrix + &Matrix
-impl<'a, 'b, T, const M: usize, const N: usize> Add<&'b Matrix<T, M, N>> for &'a Matrix<T, M, N>
+impl<T, const M: usize, const N: usize> Add<&Matrix<T, M, N>> for &Matrix<T, M, N>
 where 
     T: Copy + num_traits::Num
 {
     type Output = Matrix<T, M, N>;
 
-    fn add(self, rhs: &'b Matrix<T, M, N>) -> Self::Output {
+    fn add(self, rhs: &Matrix<T, M, N>) -> Self::Output {
 
         let mut ans = Matrix::zeros();
         // for each row
@@ -145,13 +145,13 @@ where
 
 
 // Matrix + Matrix subtraction
-impl<T, const M: usize, const N: usize> Sub for &Matrix<T, M, N>
+impl<T, const M: usize, const N: usize> Sub<&Matrix<T, M, N>> for &Matrix<T, M, N>
 where 
     T: Copy + num_traits::Num
 {
     type Output = Matrix<T, M, N>;
 
-    fn sub(self, rhs: Self) -> Self::Output {
+    fn sub(self, rhs: &Matrix<T, M, N>) -> Self::Output {
         let mut ans = Matrix::zeros();
         for i in 0..M {
             for j in 0..N {
@@ -163,7 +163,7 @@ where
 }
 
 
-// Matrix x Matrix multiplication rectangular
+// &Matrix x &Matrix multiplication
 impl<T, const M: usize, const N: usize, const P: usize> Mul<&Matrix<T, N, P>> for &Matrix<T, M, N>
 where 
     T: Copy + num_traits::Num
@@ -180,6 +180,45 @@ where
             }
         }
         ans
+    }
+}
+
+
+// Matrix x &Matrix
+impl<T, const M: usize, const N: usize, const P: usize> Mul<&Matrix<T, N, P>> for Matrix<T, M, N>
+where 
+    T: Copy + num_traits::Num
+{
+    type Output = Matrix<T, M, P>;
+
+    fn mul(self, rhs: &Matrix<T, N, P>) -> Self::Output {
+        &self * rhs
+    }
+}
+
+
+// &Matrix x Matrix
+impl<T, const M: usize, const N: usize, const P: usize> Mul<Matrix<T, N, P>> for &Matrix<T, M, N>
+where 
+    T: Copy + num_traits::Num
+{
+    type Output = Matrix<T, M, P>;
+
+    fn mul(self, rhs: Matrix<T, N, P>) -> Self::Output {
+        self * &rhs
+    }
+}
+
+
+// Matrix x Matrix
+impl<T, const M: usize, const N: usize, const P: usize> Mul<Matrix<T, N, P>> for Matrix<T, M, N>
+where 
+    T: Copy + num_traits::Num
+{
+    type Output = Matrix<T, M, P>;
+
+    fn mul(self, rhs: Matrix<T, N, P>) -> Self::Output {
+        &self * &rhs
     }
 }
 
