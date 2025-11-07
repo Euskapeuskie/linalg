@@ -283,6 +283,26 @@ impl<T, const M: usize, const N: usize> Index<RangeTo<usize>> for Matrix<T, M, N
 }
 
 
+impl<T, const M: usize, const N: usize> PartialEq<Matrix<T, M, N>> for &Matrix<T, M, N>
+where
+    T: num_traits::Num
+{
+    fn eq(&self, other: &Matrix<T, M, N>) -> bool {
+        for i in 0..M {
+            for j in 0..N {
+                if self[i][j] == other[i][j] {
+                    continue
+                }
+                else {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
+
+
 // Display implementation (println!)
 impl<T, const M: usize, const N: usize> Display for Matrix<T, M, N>
 where

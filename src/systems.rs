@@ -125,27 +125,12 @@ where
 
 
 
+#[cfg(test)]
 mod test {
     use crate::{systems::LinearSystem, types::Matrix, types::Vector};
 
     #[test]
     fn solve_full_rank() {
-        let _a = [
-            [1., 2., 0., 13.],
-            [0., -1., 0., 0.],
-            [0., 0., -1., 4.],
-            [0., 0., 4., 1.],
-        ];
-        let a = [
-            [4., 3., 2.],
-            [3., 2., 1.],
-            [2., 1., 3.],
-        ];
-        let a = [
-            [1., 0., 0.],
-            [0., 1., 0.],
-            [1., 1., 0.],
-        ];
         let a = [
             [2., -1., 0., -1.],
             [-1., 3., -2., 0.],
@@ -157,7 +142,7 @@ mod test {
         let a = Matrix::from(a);
         let b = Vector::from(b);
         let mut sys = LinearSystem::new(a,b);
-        sys.solve();
+        let _ = sys.solve();
         if let Some(x) = sys.x {
             println!("Solution to system:\n{x}");
         }

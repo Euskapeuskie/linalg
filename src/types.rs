@@ -178,6 +178,17 @@ where
         Self { data: data }
     }
 
+
+    /// Check if the matrix is symmetric
+    pub fn is_sym(&self) -> bool {
+        if self == self.transpose() {
+            true
+        }
+        else {
+            false
+        }
+    }
+
     /// Performs the LU factorization on the matrix A to satisfy the equation PA = LU and returns a tuple
     /// 
     /// (P, L, U)
@@ -338,7 +349,7 @@ where
     }
 
 
-    /// FFT transform
+    /// DFT transform, runs in O(n²)
     pub fn dft(&self) -> Matrix<Complex<T>, M, 1>
     where
         T: num_traits::Float,
@@ -357,6 +368,15 @@ where
         let t = Matrix::from(self.data.map(|x| [Complex::from(x[0])]));
         let x = &f * &t;
         x
+    }
+
+
+    /// FFT (not in place), runs in O(n*log(n))
+    pub fn fft(&self) -> ()
+    where
+        T: num_traits::Float
+    {
+        todo!()
     }
 }
 
@@ -499,10 +519,30 @@ mod test {
     }
 
     #[test]
-    fn fft() {
+    fn dft() {
         let a = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.];
         let a = Vector::from(a.map(|x| [x]));
         let f = a.dft();
         println!("{f}");
+    }
+
+    #[test]
+    fn symmetry() {
+        let a = [
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9]
+        ];
+        let b = [
+            [1, 2, 3],
+            [2, 1, 4],
+            [3, 4, 1],
+        ];
+        let a = Matrix::from(a);
+        let b = Matrix::from(b);
+        let t_1 = a.is_sym();
+        let t_2 = b.is_sym();
+        assert_eq!(t_1, false);
+        assert_eq!(t_2, true);
     }
 }
