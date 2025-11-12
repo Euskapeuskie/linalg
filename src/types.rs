@@ -298,20 +298,13 @@ where
 
 
     /// Calculates the determinant of a square matrix
-    /// 1) Bring matrix in upper triangular form (keep track of row exchanges)
+    /// 1) Bring matrix in upper triangular form (keep track of row exchanges) !!!! CANNOT USE ROW_ECHOLONG METHOD BECAUSE THIS METHOD SETS PIVOTS TO 1
     /// 2) Determinant = (-1)^n_row_changes * product of pivots
-    /// TODO: (-1)^n_row_changes!
     pub fn det(&self) -> T 
     where
         T: num_traits::Float
     {
         todo!();
-        let u = self.row_echelon();
-        let mut ans = T::one();
-        for i in 0..N {
-            ans = ans * u[i][i];
-        }
-        ans
     }
 
 
@@ -366,17 +359,61 @@ where
             }
         }
         let t = Matrix::from(self.data.map(|x| [Complex::from(x[0])]));
-        let x = &f * &t;
+        let x = f * t;
         x
     }
 
 
     /// FFT (not in place), runs in O(n*log(n))
-    pub fn fft(&self) -> ()
+    /// Uses FFT algorithm if input vector is a power of 2
+    /// Else falls back to DFT algorithm (stack overflow guaranteed if input size big)
+    pub fn fft(&self) -> Matrix<Complex<T>, M, 1>
     where
         T: num_traits::Float
     {
-        todo!()
+        // If the input array is not a power of two
+        if !self.n_rows().is_power_of_two() {
+            return self.dft();
+        }
+        let mut data = self.transpose()[0].map(|x| Complex::new(x, T::zero()));
+
+        _fft(&mut data);
+
+        /// Helper function for doing the fft algorithm recursively
+        fn _fft<T>(x: &mut [Complex<T>]) -> ()
+        where
+            T: num_traits::Float
+        {
+            let n = x.len();
+
+            // Base case
+            if n <= 1 {
+                return;
+            }
+
+            // 1) Split x into x_even and x_odd components
+            let mut x_even: Vec<_> = x.iter().step_by(2).cloned().collect();
+            let mut x_odd: Vec<_> = x.iter().skip(1).step_by(2).cloned().collect();
+
+            // 2) Recursive call for breaking down the xs further
+            // once we hit length of x_even == 1 the function returns empty
+            // -> we build the fourier matrix for size 2 first
+            _fft(&mut x_even);
+            _fft(&mut x_odd);
+
+            // do the fourier transform on each half (x_even and x_odd) of the components
+            // cannot use matrix unfortunately because non constant initialization
+            for k in 0..n/2 {
+                // twiddle factor in row k: d_k = exp(i*2*pi*k/n) --> Twiddle factor matrix D is diagonal
+                let d_k = Complex::new(0.0, -2.0 * std::f64::consts::PI * (k as f64) / (n as f64)).exp();
+                let d_k = Complex::new(T::from(d_k.re).unwrap(), T::from(d_k.im).unwrap());
+                let t = d_k * x_odd[k];
+                x[k] = x_even[k] + t;
+                x[k + n/2] = x_even[k] - t;
+            }
+        }
+
+        Matrix::from(data.map(|x| [x]))
     }
 }
 
@@ -520,9 +557,20 @@ mod test {
 
     #[test]
     fn dft() {
-        let a = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.];
-        let a = Vector::from(a.map(|x| [x]));
+        let a = (0..128).map(|x| [x as f64]).collect::<Vec<_>>();
+        let arr: [[f64; 1]; 128] = a.try_into().expect("unable to fuck");
+        println!("{arr:?}");
+        let a = Vector::from(arr);
         let f = a.dft();
+        println!("{f}");
+    }
+
+    #[test]
+    fn fft() {
+        let a = (0..23).map(|x| [x as f64]).collect::<Vec<_>>();
+        let arr: [[f64; 1]; 23] = a.try_into().expect("unable to fuck");
+        let a = Box::new(Vector::from(arr));
+        let f = a.fft();
         println!("{f}");
     }
 
