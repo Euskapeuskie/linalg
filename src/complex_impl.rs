@@ -1,7 +1,5 @@
-use core::f64;
-
-use num_complex::{Complex, ComplexFloat};
-use num_traits::{Num, Float};
+use num_complex::Complex;
+use num_traits::Num;
 
 pub trait ToComplex<T> {
     fn to_complex(&self) -> Complex<T>;

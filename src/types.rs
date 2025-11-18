@@ -1,5 +1,5 @@
 use num_traits;
-use num_complex::{Complex, ComplexFloat};
+use num_complex::Complex;
 
 use crate::complex_impl::ToComplex;
 
@@ -427,7 +427,7 @@ where
         }
         let mut data = self.transpose()[0].map(|x| Complex::new(x, T::zero()));
 
-        // _fft(&mut data);
+        _fft(&mut data);
 
         /// Helper function for doing the fft algorithm recursively
         fn _fft<T>(x: &mut [Complex<T>]) -> ()
