@@ -1,5 +1,7 @@
 use num_traits;
-use num_complex::Complex;
+use num_complex::{Complex, ComplexFloat};
+
+use crate::complex_impl::ToComplex;
 
 
 // general 2d-matrix
@@ -64,6 +66,25 @@ where
             }
         }
         ans
+    }
+
+
+    /// Tranpose of a complex matrix (Hermetian)
+    pub fn hermetian<U>(&self) -> Matrix<Complex<U>, N, M>
+    where 
+        T: ToComplex<U>,
+        U: Copy + num_traits::Num + num_traits::Float,
+    {
+        let mut ans = [[U::zero().to_complex(); M]; N];
+        for i in 0..M {
+            for j in 0..N {
+                let x = self[i][j].to_complex();
+                ans[i][j] = Complex::new(x.re, x.im-x.im-x.im);
+            }
+        }
+        let ans = Matrix::from(ans);
+        ans
+
     }
 
 
@@ -315,6 +336,23 @@ where
     pub fn eigvals(&self) -> () {
         todo!()
     }
+
+    /// Generate a N x N fourier matrix
+    pub fn fourier_matrix() -> Matrix<Complex<T>, N, N>
+    where
+        T: num_traits::Float
+    {
+        let mut f = [[T::zero().to_complex(); N]; N];
+        for i in 0..N {
+            for j in 0..N {
+                // use f64 for accuracy, convert to T (which might be f32) later
+                let theta = -2.0 * std::f64::consts::PI * (i as f64) * (j as f64) / (N as f64);
+                f[i][j] = Complex::new(T::zero(), T::from(theta).unwrap()).exp();
+            }
+        }
+        let f = Matrix::from(f);
+        f
+    }
 }
 
 
@@ -342,24 +380,37 @@ where
     }
 
 
-    /// DFT transform, runs in O(n²)
-    pub fn dft(&self) -> Matrix<Complex<T>, M, 1>
+    /// DFT transform -> projects time into frequency domain
+    /// runs in O(n²)
+    pub fn dft<U>(&self) -> Matrix<Complex<U>, M, 1>
     where
-        T: num_traits::Float,
+        T: ToComplex<U>,
+        U: Copy + num_traits::Num + num_traits::Float,
     {
-        // Direct algorithm: Build matrix -> calculate Matrix x Vector product
-        let mut f = Matrix::<Complex<T>, M, M>::zeros();
+
+        let f = Matrix::<U, M, M>::fourier_matrix();
+
+        // Convert self to a complex vector if it isn't already complex
+        let x = Vector::from(self.data.map(|row| [row[0].to_complex()]));
+        let x = f * x;
+        x
+    }
+
+
+    /// Inverse DFT Transform -> projects frequency domain in time domain
+    pub fn idft<U>(&self) -> Matrix<Complex<U>, M, 1>
+    where
+        T: ToComplex<U>,
+        U: Copy + num_traits::Num + num_traits::Float,
+    {
+        let f = Matrix::<U, M, M>::fourier_matrix().hermetian();
+        // Convert self to a complex vector if it isn't already complex
+        let x = Vector::from(self.data.map(|row| [row[0].to_complex()]));
+        let mut x = f * x;
+
         for i in 0..M {
-            for j in 0..M {
-                // use f64 for accuracy, convert to T (which might be f32) later
-                let theta = -2.0 * std::f64::consts::PI * (i as f64) * (j as f64) / (M as f64);
-                let f_ij = Complex::new(0.0, theta).exp();
-                // convert to T
-                f[i][j] = Complex::new(T::from(f_ij.re).unwrap(), T::from(f_ij.im).unwrap());
-            }
+            x[i][0] = x[i][0] * U::one()/U::from(M).unwrap();
         }
-        let t = Matrix::from(self.data.map(|x| [Complex::from(x[0])]));
-        let x = f * t;
         x
     }
 
@@ -369,15 +420,14 @@ where
     /// Else falls back to DFT algorithm (stack overflow guaranteed if input size big)
     pub fn fft(&self) -> Matrix<Complex<T>, M, 1>
     where
-        T: num_traits::Float
+        T: num_traits::Float,
     {
-        // If the input array is not a power of two
-        if !self.n_rows().is_power_of_two() {
+        if !(self.n_rows().is_power_of_two()) {
             return self.dft();
         }
         let mut data = self.transpose()[0].map(|x| Complex::new(x, T::zero()));
 
-        _fft(&mut data);
+        // _fft(&mut data);
 
         /// Helper function for doing the fft algorithm recursively
         fn _fft<T>(x: &mut [Complex<T>]) -> ()
@@ -387,7 +437,7 @@ where
             let n = x.len();
 
             // Base case
-            if n <= 1 {
+            if n < 2 {
                 return;
             }
 
@@ -525,10 +575,9 @@ mod test {
     #[test]
     fn row_echelon() {
         let a = Matrix::<f64, 4, 4>::identity();
+        let a = &a+&a;
         let t = a.row_echelon();
         println!("{t}");
-        let det = a.det();
-        println!("{det}");
     }
 
     #[test]
@@ -557,18 +606,21 @@ mod test {
 
     #[test]
     fn dft() {
-        let a = (0..128).map(|x| [x as f64]).collect::<Vec<_>>();
-        let arr: [[f64; 1]; 128] = a.try_into().expect("unable to fuck");
+        let a = (0..5).map(|x| [x as f64]).collect::<Vec<_>>();
+        let arr: [[f64; 1]; 5] = a.try_into().expect("unable");
         println!("{arr:?}");
         let a = Vector::from(arr);
+
         let f = a.dft();
         println!("{f}");
+        let g = f.idft::<f64>();
+        println!("{g:?}");
     }
 
     #[test]
     fn fft() {
         let a = (0..23).map(|x| [x as f64]).collect::<Vec<_>>();
-        let arr: [[f64; 1]; 23] = a.try_into().expect("unable to fuck");
+        let arr: [[f64; 1]; 23] = a.try_into().expect("unable");
         let a = Box::new(Vector::from(arr));
         let f = a.fft();
         println!("{f}");
