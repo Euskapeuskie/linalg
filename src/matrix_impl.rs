@@ -31,59 +31,6 @@ where
 }
 
 
-// Matrix from lambda function
-impl<T, F, const M: usize, const N: usize> From<F> for Matrix<T, M, N>
-where
-    F: Fn(usize) -> [T; N],
-    T: Copy + num_traits::Num,
-{
-    fn from(value: F) -> Self {
-        let mut ans = Self::zeros();
-        for i in 0..M {
-            ans[i] = value(i);
-        }
-        ans
-    }
-}
-
-
-// Matrix from function and array with specified points
-impl<T, F, const M: usize, const N: usize> From<(F, [T; M])> for Matrix<T, M, N>
-where
-    F: Fn(T) -> [T; N],
-    T: Copy + num_traits::Num, 
-{
-    fn from(value: (F, [T; M])) -> Self {
-        let(f, ts ) = value;
-        let mut ans = Self::zeros();
-
-        for i in 0..M {
-            ans[i] = f(ts[i]);
-        }
-        ans
-    }
-}
-
-
-// Matrix from function and step_size
-impl<T, F, const M: usize, const N: usize> From<(F, T)> for Matrix<T, M, N>
-where
-    F: Fn(T) -> [T; N],
-    T: Copy + num_traits::Float,
-{
-    fn from(value: (F, T)) -> Self {
-        let (f, stepsize) = value;
-        let mut ans = Self::zeros();
-
-        for i in 0..M {
-            let x = T::from(i).unwrap() * stepsize;
-            ans[i] = f(x);
-        }
-        ans
-    }
-}
-
-
 // Matrix + Matrix addition
 impl<T, const M: usize, const N: usize> Add for Matrix<T, M, N>
 where 
@@ -223,7 +170,39 @@ where
 }
 
 
-// Matrix x Scalar multiplication
+// &Matrix y & Scalar
+impl<T, const M: usize, const N: usize> Mul<&T> for &Matrix<T, M, N>
+where 
+    T: Copy + num_traits::Num,
+{
+    type Output = Matrix<T, M, N>;
+
+    fn mul(self, rhs: &T) -> Self::Output {
+        let mut ans = self.clone();
+        for i in 0..M {
+            for j in 0..N {
+                ans.data[i][j] = *rhs * ans.data[i][j];
+            }
+        }
+        ans
+    }
+}
+
+
+// Matrix & &scalar
+impl<T, const M: usize, const N: usize> Mul<&T> for Matrix<T, M, N>
+where 
+    T: Copy + num_traits::Num,
+{
+    type Output = Matrix<T, M, N>;
+
+    fn mul(self, rhs: &T) -> Self::Output {
+        &self * rhs
+    }
+}
+
+
+// &Matrix x Scalar
 impl<T, const M: usize, const N: usize> Mul<T> for &Matrix<T, M, N>
 where 
     T: Copy + num_traits::Num,
@@ -231,13 +210,20 @@ where
     type Output = Matrix<T, M, N>;
 
     fn mul(self, rhs: T) -> Self::Output {
-        let mut ans = self.clone();
-        for i in 0..M {
-            for j in 0..N {
-                ans.data[i][j] = rhs * ans.data[i][j];
-            }
-        }
-        ans
+        self * &rhs
+    }
+}
+
+
+// Matrix x Scalar
+impl<T, const M: usize, const N: usize> Mul<T> for Matrix<T, M, N>
+where 
+    T: Copy + num_traits::Num,
+{
+    type Output = Matrix<T, M, N>;
+
+    fn mul(self, rhs: T) -> Self::Output {
+        &self * &rhs
     }
 }
 
@@ -283,6 +269,8 @@ impl<T, const M: usize, const N: usize> Index<RangeTo<usize>> for Matrix<T, M, N
 }
 
 
+
+// PartialEq: Matrix == Matrix
 impl<T, const M: usize, const N: usize> PartialEq<Matrix<T, M, N>> for &Matrix<T, M, N>
 where
     T: num_traits::Num

@@ -21,12 +21,30 @@ impl<T, const M: usize, const N: usize> Matrix<T, M, N>
 where 
     T: Copy + num_traits::Num
 {
-    /// number of rows
+    /// Returns the number of rows (M) of the matrix
+    /// 
+    /// # Example
+    /// ```rust
+    /// use linalg::types::Matrix;
+    /// 
+    /// let c: Matrix<usize, 10, 3> = Matrix::ones();
+    /// let n_rows = c.n_rows();
+    /// assert_eq!(n_rows, 10);
+    /// ```
     pub fn n_rows(&self) -> usize {
         self.data.len()
     }
 
-    /// number of columns
+    /// Returns the number of columns (N) of the matrix
+    /// 
+    /// # Example
+    /// ```rust
+    /// use linalg::types::Matrix;
+    /// 
+    /// let c: Matrix<usize, 10, 3> = Matrix::ones();
+    /// let n_rows = c.n_cols();
+    /// assert_eq!(n_rows, 3);
+    /// ```
     pub fn n_cols(&self) -> usize {
         let maybe_n_cols = self.data.first();
         if let Some(n_cols) = maybe_n_cols {
@@ -36,15 +54,78 @@ where
     }
 
     /// create a matrix of size MxN with just 0s
+    /// 
+    /// # Example
+    /// ```rust
+    /// use linalg::types::Matrix;
+    /// 
+    /// let c: Matrix<usize, 10, 3> = Matrix::zeros();
+    /// assert_eq!(c[2], [0, 0, 0]);
+    /// ```
     pub fn zeros() -> Self {
         let data = [[T::zero(); N]; M];
         Matrix { data: data }
     }
 
     /// create a matrix of size MxN with just 1s
+    /// 
+    /// # Example
+    /// ```rust
+    /// use linalg::types::Matrix;
+    /// 
+    /// let c: Matrix<usize, 10, 3> = Matrix::ones();
+    /// assert_eq!(c[2], [1, 1, 1]);
+    /// ```
     pub fn ones() -> Self {
         let data = [[T::one(); N]; M];
         Matrix { data: data }
+    }
+
+    /// create a matrix from a function that generates each row
+    /// The resulting matrix has to be of size f().len() x n
+    /// 
+    /// # Example
+    /// ```rust
+    /// use linalg::types::Matrix;
+    /// 
+    /// let c: Matrix<usize, 10, 3> = Matrix::from_function(|x: usize| [1, x, x.pow(2)]);
+    /// assert_eq!(c[2], [1, 2, 4]);
+    /// ```
+    pub fn from_function<F>(f: F) -> Self
+    where 
+        F: Fn(usize) -> [T; N],
+    {
+        let mut data = [[T::zero(); N]; M];
+        for i in 0..M {
+            data[i] = f(i);
+        }
+        Matrix { data: data }
+    }
+
+
+    /// create a matrix from two functions - one that generates the rows, one that generates the columns
+    /// 
+    /// 
+    pub fn from_function_xy<F, G>(f: F, g: G) -> Self
+    where 
+        F: Fn(usize) -> [T; N],
+        G: Fn(usize) -> [T; M],
+    {
+        let data = [[T::zero(); N]; M];
+        let mut ans = Matrix { data: data };
+        for i in 0..M {
+            ans[i] = f(i);
+        }
+
+        let mut ans_t = ans.transpose();
+        for j in 0..N {
+            let col = g(j);
+            for k in 0..M {
+                ans_t[j][k] = ans_t[j][k] * col[k];
+            }
+        }
+        let ans = ans_t.transpose();
+        ans
     }
 
 
@@ -177,6 +258,10 @@ where
         (q.transpose(), r)
     }
 
+
+    pub fn svd(&self) -> () {
+        todo!()
+    }
 
     pub fn pinv(&self) -> Self {
         todo!()
@@ -328,7 +413,6 @@ where
         todo!();
     }
 
-
     pub fn eig(&self) -> () {
         todo!()
     }
@@ -479,23 +563,28 @@ mod test {
     #[test]
     fn create_matrix() {
         // zeros
-        let _a: Matrix<f64, 3, 2> = Matrix::zeros();
+        let a: Matrix<usize, 3, 2> = Matrix::zeros();
+        assert_eq!(a[0], [0, 0]);
+
         // ones
-        let _b: Matrix<f64, 3, 2> = Matrix::ones();
+        let b: Matrix<usize, 3, 2> = Matrix::ones();
+        assert_eq!(b[0], [1, 1]);
+
         // identity
-        let _i = Matrix::<i64, 7, 7>::identity();
+        let c: Matrix<usize, 3, 3> = Matrix::identity();
+        assert_eq!(c[0], [1, 0, 0]);
+
         // from array
         let arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
         let _m = Matrix::from(arr);
 
-        let _f = Matrix::<_, 10, _>::from(|x: usize| [1, x, x.pow(2)]);
-        println!("{_f}");
-        let ts = [0.1, 0.2, 0.34];
-        let _ft = Matrix::<f64, _, _>::from((|x: f64| [1.0, x, x.powf(0.3)], ts));
-        println!("{_ft}");
+        // from function
+        let c: Matrix<usize, 10, 3> = Matrix::from_function(|x| [1, x, x.pow(2)]);
+        assert_eq!(c[2], [1, 2, 4]);
 
-        let _fstep = Matrix::<f64, 10, _>::from((|x: f64| [x.powi(2)], 0.1));
-        println!("{_fstep}");
+        // from function xy
+        let d: Matrix<usize, 4, 4> = Matrix::from_function_xy(|x| [1, x, x.pow(2), x.pow(3)], |y| [1, y, y.pow(2), y.pow(3)]);
+        println!("{d}");
     }
 
     #[test]
