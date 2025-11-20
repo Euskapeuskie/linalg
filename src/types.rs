@@ -1,7 +1,8 @@
+use crate::complex_impl::ToComplex;
+
 use num_traits;
 use num_complex::Complex;
 
-use crate::complex_impl::ToComplex;
 
 
 // general 2d-matrix
@@ -79,6 +80,34 @@ where
     pub fn ones() -> Self {
         let data = [[T::one(); N]; M];
         Matrix { data: data }
+    }
+
+
+    /// Returns the rank of the matrix
+    /// 
+    /// # Example
+    /// ```rust
+    /// use linalg::types::Matrix;
+    /// 
+    /// let a: Matrix<f64, 5, 5> = Matrix::identity();
+    /// assert_eq!(a.rank(), 5);
+    /// ```
+    pub fn rank(&self) -> usize
+    where 
+        T: num_traits::Float,
+    {
+        let rref = self.row_echelon();
+        let mut rank = 0;
+
+        for i in 0..M {
+            if rref[i][i].abs() > T::epsilon() {
+                rank += 1;
+            }
+            else {
+                break;
+            }
+        }
+        rank
     }
 
     /// create a matrix from a function that generates each row
@@ -160,7 +189,7 @@ where
         for i in 0..M {
             for j in 0..N {
                 let x = self[i][j].to_complex();
-                ans[i][j] = Complex::new(x.re, x.im-x.im-x.im);
+                ans[i][j] = x.conj();
             }
         }
         let ans = Matrix::from(ans);
@@ -499,7 +528,7 @@ where
     }
 
 
-    /// FFT (not in place), runs in O(n*log(n))
+    /// FFT (not in place), runs in O(n*log(n)), recursive
     /// Uses FFT algorithm if input vector is a power of 2
     /// Else falls back to DFT algorithm (stack overflow guaranteed if input size big)
     pub fn fft(&self) -> Matrix<Complex<T>, M, 1>
