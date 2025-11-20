@@ -324,6 +324,32 @@ where
         }
     }
 
+
+    /// Check if matrix is diagonal
+    /// 
+    /// # Example
+    /// ```rust
+    /// use linalg::types::Matrix;
+    /// 
+    /// let a: Matrix<usize, 5, 5> = Matrix::identity();
+    /// assert_eq!(a.is_diag(), true);
+    /// 
+    /// let b: Matrix<usize, 5, 5> = Matrix::ones();
+    /// assert_eq!(b.is_diag(), false);
+    /// ```
+    /// 
+    pub fn is_diag(&self) -> bool {
+        for i in 0..N {
+            for j in 0..N {
+                // non-zero offdiagonal entry -> not diagonal
+                if (i != j) && (self[i][j] != T::zero()) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     /// Performs the LU factorization on the matrix A to satisfy the equation PA = LU and returns a tuple
     /// 
     /// (P, L, U)
