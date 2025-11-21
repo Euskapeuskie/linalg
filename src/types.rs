@@ -486,7 +486,9 @@ where
             for j in 0..N {
                 // use f64 for accuracy, convert to T (which might be f32) later
                 let theta = -2.0 * std::f64::consts::PI * (i as f64) * (j as f64) / (N as f64);
-                f[i][j] = Complex::new(T::zero(), T::from(theta).unwrap()).exp();
+                let theta_t = T::from(theta).unwrap();
+
+                f[i][j] = Complex::from_polar(T::one(), theta_t);
             }
         }
         let f = Matrix::from(f);
