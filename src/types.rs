@@ -110,6 +110,66 @@ where
         rank
     }
 
+    /// Check if the columns of a matrix are orthogonal
+    /// 
+    /// # Example
+    /// ```
+    /// use linalg::types::Matrix;
+    /// 
+    /// let a = [
+    ///     [2.0, 1.0],
+    ///     [2.0, 1.0],
+    ///     [2.0, -1.0],
+    ///     [2.0, -1.0],
+    /// ];
+    /// let a = Matrix::from(a);
+    /// assert_eq!(a.is_orthogonal(), true);
+    /// ```
+    pub fn is_orthogonal(&self) -> bool {
+        let ans = self.transpose() * self;
+        for i in 0..N {
+            for j in 0..N {
+                // only nonzeros on the diagonal
+                if i == j && (ans[i][j].is_zero()) {
+                    return false;
+                }
+                // only zeros off the diagonal
+                else if (i != j) && (!ans[i][j].is_zero()) {
+                    return false;
+                }
+                else {
+                    continue;
+                }
+            }
+        }
+        true
+    }
+
+
+    /// Check if a matrix is orthonormal: Q_transpose*Q = I
+    /// 
+    /// # Example
+    /// ```rust
+    /// 
+    /// use linalg::types::Matrix;
+    /// 
+    /// let a: Matrix<f64, 5, 5> = Matrix::identity();
+    /// assert_eq!(a.is_orthonormal(), true);
+    /// 
+    /// let mut b: Matrix<f64, 5, 5> = Matrix::identity();
+    /// b[0][0] += 0.000003;
+    /// assert_eq!(b.is_orthonormal(), false);
+    /// ```
+    pub fn is_orthonormal(&self) -> bool {
+        let identity: Matrix<T, N, N> = Matrix::identity();
+        if self.transpose() * self == identity {
+            true
+        }
+        else {
+            false
+        }
+    }
+
     /// create a matrix from a function that generates each row
     /// The resulting matrix has to be of size f().len() x n
     /// 
@@ -476,7 +536,13 @@ where
         todo!()
     }
 
-    /// Generate a N x N fourier matrix
+    /// Generate a N x N fourier matrix that uses e^(-i*2*PI/n) as exponent
+    /// THIS MATRIX IS THEREBY BASICALLY ALREADY THE HERMETIAN IF:
+    /// x = F * c with:
+    ///     x = signal in time domain
+    ///     F = fourier basis
+    ///     c = frequency coefficient vector
+    /// --> we want to find c = F^(-1) * x with F^(-1) = F_hermetian --> just use negative exponent
     pub fn fourier_matrix() -> Matrix<Complex<T>, N, N>
     where
         T: num_traits::Float

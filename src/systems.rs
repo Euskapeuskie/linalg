@@ -74,7 +74,7 @@ where
     /// 
     /// 
     /// This is done using PLU decomposition (Ax = b -> LUx = Pb)
-    /// 1) Ly = Pb
+    /// 1) Ly = Pb with y = Ux
     /// 2) Ux = y
     pub fn solve(&mut self) -> Result<Vector<T, N>, String>
     where

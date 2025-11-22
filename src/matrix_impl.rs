@@ -270,15 +270,15 @@ impl<T, const M: usize, const N: usize> Index<RangeTo<usize>> for Matrix<T, M, N
 
 
 
-// PartialEq: Matrix == Matrix
+// PartialEq: &Matrix == &Matrix
 impl<T, const M: usize, const N: usize> PartialEq<Matrix<T, M, N>> for &Matrix<T, M, N>
 where
-    T: num_traits::Num
+    T: num_traits::Num + Copy
 {
     fn eq(&self, other: &Matrix<T, M, N>) -> bool {
         for i in 0..M {
             for j in 0..N {
-                if self[i][j] == other[i][j] {
+                if (self[i][j] - other[i][j]).is_zero() {
                     continue
                 }
                 else {
@@ -287,6 +287,17 @@ where
             }
         }
         true
+    }
+}
+
+
+// PartialEq: Matrix == Matrix
+impl<T, const M: usize, const N: usize> PartialEq<Matrix<T, M, N>> for Matrix<T, M, N>
+where
+    T: num_traits::Num + Copy
+{
+    fn eq(&self, other: &Matrix<T, M, N>) -> bool {
+        &self == other
     }
 }
 
